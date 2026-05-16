@@ -241,7 +241,7 @@ body {
 }
 
 /* ── Responsive: Mobile Layout ───────────────────────────────── */
-@media (max-width: 700px) {
+@media (max-width: 900px) {
 
   /* Allow scrolling on mobile */
   html, body { overflow: auto; height: auto; }

@@ -737,7 +737,8 @@ class Game {
     // ── Bind keyboard, overlay button, and touch controls
     document.addEventListener('keydown', e => this._onKeyDown(e));
     document.addEventListener('keyup',   e => this._onKeyUp(e));
-    this.$ovBtn.addEventListener('click', () => this._overlayAction());
+    this.$ovBtn.addEventListener('click',      () => this._overlayAction());
+    this.$ovBtn.addEventListener('touchstart', e  => { e.preventDefault(); this._overlayAction(); }, { passive: false });
     this._initTouchControls();
 
     // Show start screen
@@ -1065,110 +1066,140 @@ class Game {
    * Auto-repeat (DAS) is implemented for left/right via setInterval.
    */
   _initTouchControls() {
-    // Helper: bind touchstart + touchend safely (prevents ghost clicks)
-    const onTouch = (id, startFn, endFn = null) => {
+    /**
+     * Binds a touch button reliably.
+     * Uses ONLY touchstart/touchend — avoids the 300ms click delay
+     * and prevents double-firing from synthetic mouse events on mobile.
+     */
+    const bindBtn = (id, onDown, onUp = null) => {
       const el = document.getElementById(id);
       if (!el) return;
-      el.addEventListener('touchstart', e => { e.preventDefault(); startFn(); }, { passive: false });
-      el.addEventListener('touchend',   e => { e.preventDefault(); if (endFn) endFn(); }, { passive: false });
-      el.addEventListener('touchcancel',e => { if (endFn) endFn(); });
-      // Also support mouse for testing on desktop
-      el.addEventListener('mousedown', startFn);
-      el.addEventListener('mouseup',   endFn || (() => {}));
+
+      el.addEventListener('touchstart', e => {
+        e.preventDefault();   // stops scroll & synthetic mouse events
+        e.stopPropagation();
+        onDown();
+      }, { passive: false });
+
+      el.addEventListener('touchend', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (onUp) onUp();
+      }, { passive: false });
+
+      el.addEventListener('touchcancel', () => { if (onUp) onUp(); });
+
+      // Desktop fallback (mouse)
+      el.addEventListener('mousedown', e => { e.preventDefault(); onDown(); });
+      el.addEventListener('mouseup',   () => { if (onUp) onUp(); });
     };
 
-    // Hold-to-repeat helper (mirrors DAS behaviour)
-    let _holdTimer    = null;
-    let _holdInterval = null;
-    const startHold = action => {
+    // ── Auto-repeat (DAS) for held buttons ───────────────────────
+    let holdTimer    = null;
+    let holdInterval = null;
+
+    const startHold = (action) => {
       if (this.state !== 'playing') return;
-      action();
-      _holdTimer = setTimeout(() => {
-        _holdInterval = setInterval(() => {
+      action(); // fire immediately on press
+      holdTimer = setTimeout(() => {
+        holdInterval = setInterval(() => {
           if (this.state === 'playing') action();
         }, DAS_RATE);
       }, DAS_DELAY);
     };
+
     const stopHold = () => {
-      clearTimeout(_holdTimer);
-      clearInterval(_holdInterval);
+      clearTimeout(holdTimer);
+      clearInterval(holdInterval);
+      holdTimer = holdInterval = null;
     };
 
-    // ── Left / Right (with auto-repeat)
-    onTouch('tc-left',
+    // ── Move Left ────────────────────────────────────────────────
+    bindBtn('tc-left',
       () => startHold(() => this._moveLeft()),
-      () => stopHold(),
+      () => stopHold()
     );
-    onTouch('tc-right',
+
+    // ── Move Right ───────────────────────────────────────────────
+    bindBtn('tc-right',
       () => startHold(() => this._moveRight()),
-      () => stopHold(),
+      () => stopHold()
     );
 
-    // ── Soft drop (with auto-repeat)
-    onTouch('tc-down',
-      () => startHold(() => { if (this.state === 'playing') { this._dropOneRow(true); this.gravityAccum = 0; } }),
-      () => stopHold(),
+    // ── Soft Drop ────────────────────────────────────────────────
+    bindBtn('tc-down',
+      () => startHold(() => {
+        if (this.state === 'playing') {
+          this._dropOneRow(true);
+          this.gravityAccum = 0;
+        }
+      }),
+      () => stopHold()
     );
 
-    // ── Rotate CW / CCW
-    onTouch('tc-cw',  () => { if (this.state === 'playing') this._rotateCW(); });
-    onTouch('tc-ccw', () => { if (this.state === 'playing') this._rotateCCW(); });
+    // ── Rotate CW ────────────────────────────────────────────────
+    bindBtn('tc-cw', () => {
+      if (this.state === 'playing') this._rotateCW();
+    });
 
-    // ── Hard drop
-    onTouch('tc-drop', () => { if (this.state === 'playing') this._hardDrop(); });
+    // ── Rotate CCW ───────────────────────────────────────────────
+    bindBtn('tc-ccw', () => {
+      if (this.state === 'playing') this._rotateCCW();
+    });
 
-    // ── Pause
-    onTouch('tc-pause', () => {
+    // ── Hard Drop ────────────────────────────────────────────────
+    bindBtn('tc-drop', () => {
+      if (this.state === 'playing') this._hardDrop();
+    });
+
+    // ── Pause / Resume ───────────────────────────────────────────
+    bindBtn('tc-pause', () => {
       if      (this.state === 'playing') this._pause();
       else if (this.state === 'paused')  this._resume();
       else                               this._overlayAction();
     });
 
-    // ── Mute (mobile)
-    const tcMute = document.getElementById('tc-mute');
-    if (tcMute) {
-      tcMute.addEventListener('touchstart', e => {
-        e.preventDefault();
-        this._toggleMute();
-        tcMute.textContent = this.sound.muted ? '🔇' : '🔊';
-      }, { passive: false });
-    }
+    // ── Mute ─────────────────────────────────────────────────────
+    bindBtn('tc-mute', () => {
+      this._toggleMute();
+    });
 
-    // ── Swipe gestures on the canvas
+    // ── Canvas swipe gestures ─────────────────────────────────────
     const canvas = document.getElementById('game-canvas');
-    let swipeX = 0, swipeY = 0, swipeTime = 0;
+    let sx = 0, sy = 0, st = 0;
 
     canvas.addEventListener('touchstart', e => {
       e.preventDefault();
-      swipeX    = e.touches[0].clientX;
-      swipeY    = e.touches[0].clientY;
-      swipeTime = Date.now();
+      sx = e.touches[0].clientX;
+      sy = e.touches[0].clientY;
+      st = Date.now();
     }, { passive: false });
 
     canvas.addEventListener('touchend', e => {
       e.preventDefault();
-      if (this.state !== 'playing') { this._overlayAction(); return; }
 
-      const dx   = e.changedTouches[0].clientX - swipeX;
-      const dy   = e.changedTouches[0].clientY - swipeY;
-      const dt   = Date.now() - swipeTime;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      // Tap (small movement, quick) → rotate CW
-      if (dist < 20 && dt < 300) {
-        this._rotateCW();
+      // Tapping canvas when not playing → start / resume
+      if (this.state !== 'playing') {
+        this._overlayAction();
         return;
       }
 
-      // Swipe: determine dominant direction
-      if (Math.abs(dx) > Math.abs(dy)) {
+      const dx   = e.changedTouches[0].clientX - sx;
+      const dy   = e.changedTouches[0].clientY - sy;
+      const dt   = Date.now() - st;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < 15 && dt < 250) {
+        // Quick tap → rotate CW
+        this._rotateCW();
+      } else if (Math.abs(dx) > Math.abs(dy)) {
         // Horizontal swipe
-        if (dx > 25)       this._moveRight();
+        if      (dx >  25) this._moveRight();
         else if (dx < -25) this._moveLeft();
       } else {
         // Vertical swipe
-        if (dy > 25)       this._dropOneRow(true);   // swipe down = soft drop
-        else if (dy < -50) this._hardDrop();          // swipe up   = hard drop
+        if      (dy >  25) { this._dropOneRow(true); this.gravityAccum = 0; }
+        else if (dy < -40) this._hardDrop();
       }
     }, { passive: false });
   }
