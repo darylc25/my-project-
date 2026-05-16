@@ -67,6 +67,33 @@
       </aside>
 
     </div>
+
+    <!-- ── Mobile HUD (score strip, hidden on desktop) ── -->
+    <div id="mobile-hud">
+      <div class="m-stat"><div class="m-label">SCORE</div><div class="m-value" id="m-score">0</div></div>
+      <div class="m-stat"><div class="m-label">LEVEL</div><div class="m-value" id="m-level">1</div></div>
+      <div class="m-stat"><div class="m-label">LINES</div><div class="m-value" id="m-lines">0</div></div>
+      <div class="m-stat"><canvas id="m-next-canvas"></canvas></div>
+    </div>
+
+    <!-- ── Mobile Touch Controls ── -->
+    <div id="touch-controls">
+      <div class="tc-row tc-row--top">
+        <button class="tc-btn" id="tc-ccw">↺</button>
+        <button class="tc-btn tc-btn--wide" id="tc-pause">⏸</button>
+        <button class="tc-btn" id="tc-cw">↻</button>
+      </div>
+      <div class="tc-row tc-row--mid">
+        <button class="tc-btn tc-btn--large" id="tc-left">◀</button>
+        <button class="tc-btn tc-btn--large" id="tc-down">▼</button>
+        <button class="tc-btn tc-btn--large" id="tc-right">▶</button>
+      </div>
+      <div class="tc-row tc-row--bot">
+        <button class="tc-btn tc-btn--drop" id="tc-drop">HARD DROP</button>
+        <button class="tc-btn tc-btn--mute" id="tc-mute">🔊</button>
+      </div>
+    </div>
+
   </div>
 
   <script src="game.js"></script>

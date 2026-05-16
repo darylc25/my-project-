@@ -719,14 +719,26 @@ class Game {
       right: { active: false, held: 0, repeating: false },
     };
 
-    // ── Mute button
+    // ── Mobile HUD elements
+    this.$mScore = document.getElementById('m-score');
+    this.$mLevel = document.getElementById('m-level');
+    this.$mLines = document.getElementById('m-lines');
+
+    // ── Mobile next-piece preview renderer
+    const mNextCanvas = document.getElementById('m-next-canvas');
+    mNextCanvas.width  = NB_GRID * NB;
+    mNextCanvas.height = NB_GRID * NB;
+    this._mNextCtx = mNextCanvas.getContext('2d');
+
+    // ── Mute button (desktop)
     this.$muteBtn = document.getElementById('mute-btn');
     this.$muteBtn.addEventListener('click', () => this._toggleMute());
 
-    // ── Bind input & button
+    // ── Bind keyboard, overlay button, and touch controls
     document.addEventListener('keydown', e => this._onKeyDown(e));
     document.addEventListener('keyup',   e => this._onKeyUp(e));
     this.$ovBtn.addEventListener('click', () => this._overlayAction());
+    this._initTouchControls();
 
     // Show start screen
     this._showOverlay('TETRIS', 'Press Enter or Space to Start', 'START GAME');
@@ -970,9 +982,24 @@ class Game {
   }
 
   _updateHUD() {
-    this.$score.textContent = this.score;
-    this.$level.textContent = this.level;
-    this.$lines.textContent = this.lines;
+    this.$score.textContent  = this.score;
+    this.$level.textContent  = this.level;
+    this.$lines.textContent  = this.lines;
+    // Mirror to mobile HUD
+    this.$mScore.textContent = this.score;
+    this.$mLevel.textContent = this.level;
+    this.$mLines.textContent = this.lines;
+  }
+
+  /** Draws the next-piece preview on the mobile HUD canvas. */
+  _drawMobileNext(piece) {
+    const ctx  = this._mNextCtx;
+    const size = NB_GRID * NB;
+    ctx.fillStyle = '#10102a';
+    ctx.fillRect(0, 0, size, size);
+    if (!piece) return;
+    // Reuse renderer's shape-drawing logic
+    this.renderer._drawNextPreview.call({ nextCtx: ctx, renderer: this.renderer }, piece);
   }
 
   // ── PRIVATE: State transitions ────────────────────────────────
@@ -987,11 +1014,14 @@ class Game {
     );
   }
 
-  /** Toggles mute on/off and updates the button label. */
+  /** Toggles mute on/off and updates both desktop and mobile buttons. */
   _toggleMute() {
     this.sound.muted = !this.sound.muted;
-    this.$muteBtn.textContent = this.sound.muted ? '🔇 MUTED' : '🔊 SOUND ON';
-    this.$muteBtn.classList.toggle('muted', this.sound.muted);
+    const on = !this.sound.muted;
+    this.$muteBtn.textContent = on ? '🔊 SOUND ON' : '🔇 MUTED';
+    this.$muteBtn.classList.toggle('muted', !on);
+    const tcMute = document.getElementById('tc-mute');
+    if (tcMute) tcMute.textContent = on ? '🔊' : '🔇';
   }
 
   _pause() {
@@ -1027,6 +1057,121 @@ class Game {
   }
 
   // ── PRIVATE: Input handling ───────────────────────────────────
+
+  // ── PRIVATE: Touch Controls ───────────────────────────────────
+
+  /**
+   * Wires up all on-screen touch buttons and canvas swipe gestures.
+   * Auto-repeat (DAS) is implemented for left/right via setInterval.
+   */
+  _initTouchControls() {
+    // Helper: bind touchstart + touchend safely (prevents ghost clicks)
+    const onTouch = (id, startFn, endFn = null) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('touchstart', e => { e.preventDefault(); startFn(); }, { passive: false });
+      el.addEventListener('touchend',   e => { e.preventDefault(); if (endFn) endFn(); }, { passive: false });
+      el.addEventListener('touchcancel',e => { if (endFn) endFn(); });
+      // Also support mouse for testing on desktop
+      el.addEventListener('mousedown', startFn);
+      el.addEventListener('mouseup',   endFn || (() => {}));
+    };
+
+    // Hold-to-repeat helper (mirrors DAS behaviour)
+    let _holdTimer    = null;
+    let _holdInterval = null;
+    const startHold = action => {
+      if (this.state !== 'playing') return;
+      action();
+      _holdTimer = setTimeout(() => {
+        _holdInterval = setInterval(() => {
+          if (this.state === 'playing') action();
+        }, DAS_RATE);
+      }, DAS_DELAY);
+    };
+    const stopHold = () => {
+      clearTimeout(_holdTimer);
+      clearInterval(_holdInterval);
+    };
+
+    // ── Left / Right (with auto-repeat)
+    onTouch('tc-left',
+      () => startHold(() => this._moveLeft()),
+      () => stopHold(),
+    );
+    onTouch('tc-right',
+      () => startHold(() => this._moveRight()),
+      () => stopHold(),
+    );
+
+    // ── Soft drop (with auto-repeat)
+    onTouch('tc-down',
+      () => startHold(() => { if (this.state === 'playing') { this._dropOneRow(true); this.gravityAccum = 0; } }),
+      () => stopHold(),
+    );
+
+    // ── Rotate CW / CCW
+    onTouch('tc-cw',  () => { if (this.state === 'playing') this._rotateCW(); });
+    onTouch('tc-ccw', () => { if (this.state === 'playing') this._rotateCCW(); });
+
+    // ── Hard drop
+    onTouch('tc-drop', () => { if (this.state === 'playing') this._hardDrop(); });
+
+    // ── Pause
+    onTouch('tc-pause', () => {
+      if      (this.state === 'playing') this._pause();
+      else if (this.state === 'paused')  this._resume();
+      else                               this._overlayAction();
+    });
+
+    // ── Mute (mobile)
+    const tcMute = document.getElementById('tc-mute');
+    if (tcMute) {
+      tcMute.addEventListener('touchstart', e => {
+        e.preventDefault();
+        this._toggleMute();
+        tcMute.textContent = this.sound.muted ? '🔇' : '🔊';
+      }, { passive: false });
+    }
+
+    // ── Swipe gestures on the canvas
+    const canvas = document.getElementById('game-canvas');
+    let swipeX = 0, swipeY = 0, swipeTime = 0;
+
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      swipeX    = e.touches[0].clientX;
+      swipeY    = e.touches[0].clientY;
+      swipeTime = Date.now();
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', e => {
+      e.preventDefault();
+      if (this.state !== 'playing') { this._overlayAction(); return; }
+
+      const dx   = e.changedTouches[0].clientX - swipeX;
+      const dy   = e.changedTouches[0].clientY - swipeY;
+      const dt   = Date.now() - swipeTime;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // Tap (small movement, quick) → rotate CW
+      if (dist < 20 && dt < 300) {
+        this._rotateCW();
+        return;
+      }
+
+      // Swipe: determine dominant direction
+      if (Math.abs(dx) > Math.abs(dy)) {
+        // Horizontal swipe
+        if (dx > 25)       this._moveRight();
+        else if (dx < -25) this._moveLeft();
+      } else {
+        // Vertical swipe
+        if (dy > 25)       this._dropOneRow(true);   // swipe down = soft drop
+        else if (dy < -50) this._hardDrop();          // swipe up   = hard drop
+      }
+    }, { passive: false });
+  }
 
   _onKeyDown(e) {
     // ── Global keys (work in any state) ──────────────────────────
