@@ -203,5 +203,32 @@ body {
   50%       { text-shadow: 0 0 35px var(--accent), 0 0 70px var(--accent-glow); }
 }
 
+/* ── Mute Button ─────────────────────────────────────────────── */
+.mute-btn {
+  font-family: var(--font);
+  font-size: 7px;
+  letter-spacing: 1px;
+  color: var(--text);
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 8px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.mute-btn:hover {
+  background: #1a1a3a;
+  border-color: var(--accent);
+  color: var(--cyan);
+}
+
+.mute-btn.muted {
+  color: var(--text-dim);
+  border-color: #333360;
+}
+
 /* ── Scrollbar (Firefox) ─────────────────────────────────────── */
 * { scrollbar-width: thin; scrollbar-color: var(--border) var(--panel-bg); }

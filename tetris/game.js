@@ -165,7 +165,129 @@ const KICKS_I = {
   '0>3': [[ 0, 0], [-1, 0], [ 2, 0], [-1,-2], [ 2, 1]],
 };
 
-// ── SECTION 4 ── Bag Randomizer ───────────────────────────────
+// ── SECTION 4 ── Sound Engine ─────────────────────────────────
+
+/**
+ * Procedural audio using the Web Audio API.
+ * Generates all sound effects programmatically — no audio files needed.
+ * Lazy-initialises AudioContext on the first user gesture to comply
+ * with browser autoplay policies.
+ */
+class SoundEngine {
+  constructor() {
+    this._audioCtx = null;
+    this.muted     = false;
+  }
+
+  /** Lazily create (and resume) the AudioContext. */
+  _getCtx() {
+    if (!this._audioCtx) {
+      this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (this._audioCtx.state === 'suspended') this._audioCtx.resume();
+    return this._audioCtx;
+  }
+
+  /**
+   * Schedules a single synthesised tone.
+   *
+   * @param {number}      freq     Hz at start
+   * @param {string}      type     OscillatorType: 'sine'|'square'|'sawtooth'|'triangle'
+   * @param {number}      dur      Duration in seconds
+   * @param {number}      vol      Peak gain (0–1)
+   * @param {number}      delay    Start offset from now (seconds)
+   * @param {number|null} freqEnd  Optional end frequency for pitch sweep
+   */
+  _tone(freq, type, dur, vol = 0.25, delay = 0, freqEnd = null) {
+    if (this.muted) return;
+    const ctx = this._getCtx();
+    const t   = ctx.currentTime + delay;
+
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    if (freqEnd !== null) {
+      osc.frequency.linearRampToValueAtTime(freqEnd, t + dur);
+    }
+
+    // Quick attack → exponential decay
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(vol, t + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  }
+
+  // ── Public sound effects ──────────────────────────────────────
+
+  /** Short blip when piece moves left or right. */
+  move() {
+    this._tone(160, 'square', 0.04, 0.07);
+  }
+
+  /** Quick pitch-rise when piece rotates. */
+  rotate() {
+    this._tone(280, 'square', 0.07, 0.12, 0, 380);
+  }
+
+  /** Subtle tick on soft drop. */
+  softDrop() {
+    this._tone(140, 'square', 0.04, 0.06);
+  }
+
+  /** Heavy impact on hard drop (two-layer thud). */
+  hardDrop() {
+    this._tone(130, 'square', 0.07, 0.35);
+    this._tone(80,  'square', 0.14, 0.30, 0.05);
+  }
+
+  /** Solid thud when piece locks onto the board. */
+  lock() {
+    this._tone(200, 'square', 0.06, 0.20);
+    this._tone(130, 'square', 0.10, 0.15, 0.04);
+  }
+
+  /**
+   * Chime sequence — scales with lines cleared.
+   * 4 lines (Tetris) plays a special triumphant jingle.
+   *
+   * @param {number} count Lines cleared (1–4)
+   */
+  lineClear(count) {
+    if (count >= 4) {
+      // Tetris! — ascending fanfare
+      [523, 659, 784, 1047, 784, 1047].forEach((f, i) =>
+        this._tone(f, 'sine', 0.20, 0.55, i * 0.09),
+      );
+    } else {
+      // 1–3 lines: ascending chimes (more notes for more lines)
+      [523, 659, 784, 1047].slice(0, count + 1).forEach((f, i) =>
+        this._tone(f, 'sine', 0.22, 0.48, i * 0.10),
+      );
+    }
+  }
+
+  /** Ascending arpeggio on level-up. */
+  levelUp() {
+    [392, 523, 659, 784, 1047].forEach((f, i) =>
+      this._tone(f, 'sine', 0.16, 0.42, i * 0.09),
+    );
+  }
+
+  /** Descending sad melody on game over. */
+  gameOver() {
+    [523, 494, 440, 392, 349, 294, 262].forEach((f, i) =>
+      this._tone(f, 'sawtooth', 0.28, 0.38, i * 0.18),
+    );
+  }
+}
+
+// ── SECTION 5 ── Bag Randomizer ───────────────────────────────
 
 /**
  * Implements the 7-bag randomizer required by the Tetris Guideline.
@@ -200,7 +322,7 @@ class Bag {
   }
 }
 
-// ── SECTION 5 ── Board ────────────────────────────────────────
+// ── SECTION 6 ── Board ────────────────────────────────────────
 
 /**
  * Manages the locked-cell grid.  Each cell is `null` (empty) or a
@@ -284,7 +406,7 @@ class Board {
   }
 }
 
-// ── SECTION 6 ── Piece ────────────────────────────────────────
+// ── SECTION 7 ── Piece ────────────────────────────────────────
 
 /**
  * Represents the active falling tetromino.
@@ -343,7 +465,7 @@ class Piece {
   }
 }
 
-// ── SECTION 7 ── Renderer ─────────────────────────────────────
+// ── SECTION 8 ── Renderer ─────────────────────────────────────
 
 /**
  * All canvas drawing logic, fully separated from game state.
@@ -545,7 +667,7 @@ function blendHex(hex1, hex2, t) {
   return `rgb(${r},${g},${b})`;
 }
 
-// ── SECTION 8 ── Game Controller ─────────────────────────────
+// ── SECTION 9 ── Game Controller ─────────────────────────────
 
 /**
  * Master game controller.  Owns the RAF loop, input handling,
@@ -569,7 +691,8 @@ class Game {
       document.getElementById('game-canvas'),
       document.getElementById('next-canvas'),
     );
-    this.bag = new Bag();
+    this.bag   = new Bag();
+    this.sound = new SoundEngine();
 
     // ── Game state  ('idle' | 'playing' | 'paused' | 'gameover')
     this.state     = 'idle';
@@ -595,6 +718,10 @@ class Game {
       left:  { active: false, held: 0, repeating: false },
       right: { active: false, held: 0, repeating: false },
     };
+
+    // ── Mute button
+    this.$muteBtn = document.getElementById('mute-btn');
+    this.$muteBtn.addEventListener('click', () => this._toggleMute());
 
     // ── Bind input & button
     document.addEventListener('keydown', e => this._onKeyDown(e));
@@ -686,7 +813,7 @@ class Game {
       this.current.row++;
       this.isLocking = false;
       this.lockTimer = 0;
-      if (scored) this._addScore(1);
+      if (scored) { this._addScore(1); this.sound.softDrop(); }
     } else {
       // Piece has hit a surface — engage lock delay
       if (!this.isLocking) {
@@ -708,6 +835,7 @@ class Game {
       rows++;
     }
     this._addScore(rows * 2);
+    this.sound.hardDrop();
     this._lockPiece();
   }
 
@@ -723,14 +851,20 @@ class Game {
       return;
     }
 
+    this.sound.lock(); // piece locked onto board
+
     const cleared = this.board.clearLines();
     if (cleared > 0) {
+      this.sound.lineClear(cleared); // chime (overwrites lock sound intentionally)
       this._addScore(SCORE_TABLE[cleared] * this.level);
       this.lines += cleared;
 
       // Level up every LINES_PER_LEVEL cleared lines (max level 15)
       const newLevel = Math.min(Math.floor(this.lines / LINES_PER_LEVEL) + 1, 15);
-      if (newLevel > this.level) this.level = newLevel;
+      if (newLevel > this.level) {
+        this.level = newLevel;
+        this.sound.levelUp();
+      }
 
       this._updateHUD();
     }
@@ -768,6 +902,7 @@ class Game {
     if (this.board.isValid(this.current.shape, this.current.col - 1, this.current.row)) {
       this.current.col--;
       this._resetLockOnMove();
+      this.sound.move();
     }
   }
 
@@ -775,11 +910,12 @@ class Game {
     if (this.board.isValid(this.current.shape, this.current.col + 1, this.current.row)) {
       this.current.col++;
       this._resetLockOnMove();
+      this.sound.move();
     }
   }
 
-  _rotateCW()  { if (this.current.rotate( 1, this.board)) this._resetLockOnMove(); }
-  _rotateCCW() { if (this.current.rotate(-1, this.board)) this._resetLockOnMove(); }
+  _rotateCW()  { if (this.current.rotate( 1, this.board)) { this._resetLockOnMove(); this.sound.rotate(); } }
+  _rotateCCW() { if (this.current.rotate(-1, this.board)) { this._resetLockOnMove(); this.sound.rotate(); } }
 
   /**
    * Resets the lock-delay timer on a successful move or rotate, up to
@@ -843,11 +979,19 @@ class Game {
 
   _triggerGameOver() {
     this.state = 'gameover';
+    this.sound.gameOver();
     this._showOverlay(
       'GAME OVER',
       `Score: ${this.score}\nLevel: ${this.level}\nLines: ${this.lines}`,
       'PLAY AGAIN',
     );
+  }
+
+  /** Toggles mute on/off and updates the button label. */
+  _toggleMute() {
+    this.sound.muted = !this.sound.muted;
+    this.$muteBtn.textContent = this.sound.muted ? '🔇 MUTED' : '🔊 SOUND ON';
+    this.$muteBtn.classList.toggle('muted', this.sound.muted);
   }
 
   _pause() {
@@ -886,6 +1030,11 @@ class Game {
 
   _onKeyDown(e) {
     // ── Global keys (work in any state) ──────────────────────────
+
+    if (e.key === 'm' || e.key === 'M') {
+      this._toggleMute();
+      return;
+    }
 
     if (e.key === 'p' || e.key === 'P') {
       if      (this.state === 'playing') this._pause();
