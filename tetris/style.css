@@ -1,0 +1,207 @@
+/* ================================================================
+   TETRIS — Stylesheet
+   Dark-mode, retro-modern aesthetic using "Press Start 2P" font.
+   ================================================================ */
+
+/* ── Reset & Custom Properties ──────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #080818;
+  --panel-bg:    #10102a;
+  --border:      #28285a;
+  --accent:      #7b2fff;
+  --accent-glow: rgba(123, 47, 255, 0.55);
+  --cyan:        #00cfcf;
+  --text:        #d8d8ff;
+  --text-dim:    #5858a0;
+  --font:        'Press Start 2P', monospace;
+}
+
+/* ── Base ────────────────────────────────────────────────────── */
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  overflow: hidden;
+}
+
+/* Subtle animated background gradient */
+body {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(50, 0, 120, 0.25) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 50%, rgba(0, 80, 120, 0.20) 0%, transparent 60%),
+    var(--bg);
+}
+
+/* ── Layout ──────────────────────────────────────────────────── */
+#app {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+#game-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+/* ── Side Panels ─────────────────────────────────────────────── */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 148px;
+  padding-top: 2px;
+}
+
+/* ── Info Boxes ──────────────────────────────────────────────── */
+.info-box {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 10px;
+}
+
+.info-label {
+  font-size: 7px;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  margin-bottom: 7px;
+}
+
+.info-value {
+  font-size: 16px;
+  color: var(--text);
+  text-shadow: 0 0 12px var(--accent);
+  word-break: break-all;
+}
+
+/* Next-piece preview canvas sits inside its info-box */
+#next-canvas {
+  display: block;
+  margin-top: 8px;
+}
+
+/* ── Controls list ───────────────────────────────────────────── */
+.controls { gap: 0; }
+
+.key-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 7px;
+}
+
+.key {
+  display: inline-block;
+  background: #1a1a38;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 3px 5px;
+  font-size: 6px;
+  color: var(--cyan);
+  white-space: nowrap;
+}
+
+.key-desc {
+  font-size: 6px;
+  color: var(--text-dim);
+  text-align: right;
+  flex: 1;
+  padding-left: 6px;
+}
+
+/* ── Board Wrapper (positions the overlay) ───────────────────── */
+#board-wrapper {
+  position: relative;
+  /* border + glow */
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  box-shadow:
+    0 0 0 1px rgba(123, 47, 255, 0.2),
+    0 0 30px var(--accent-glow),
+    0 0 60px rgba(123, 47, 255, 0.15),
+    inset 0 0 40px rgba(0, 0, 0, 0.6);
+  line-height: 0; /* removes gap below canvas */
+}
+
+#game-canvas {
+  display: block;
+}
+
+/* ── Overlay ─────────────────────────────────────────────────── */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 8, 24, 0.88);
+  backdrop-filter: blur(6px);
+  border-radius: 2px;
+  transition: opacity 0.2s ease;
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.overlay-inner {
+  text-align: center;
+  padding: 28px 20px;
+}
+
+#overlay-title {
+  font-size: 26px;
+  letter-spacing: 6px;
+  color: var(--accent);
+  text-shadow:
+    0 0 20px var(--accent),
+    0 0 40px var(--accent-glow);
+  margin-bottom: 20px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+#overlay-message {
+  font-size: 8px;
+  line-height: 2.2;
+  color: var(--text-dim);
+  margin-bottom: 28px;
+}
+
+#overlay-btn {
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 3px;
+  padding: 13px 22px;
+  cursor: pointer;
+  box-shadow: 0 0 20px var(--accent-glow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+#overlay-btn:hover {
+  background: #9b4fff;
+  transform: scale(1.06);
+  box-shadow: 0 0 32px var(--accent-glow);
+}
+
+#overlay-btn:active {
+  transform: scale(0.97);
+}
+
+/* ── Animations ──────────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent-glow); }
+  50%       { text-shadow: 0 0 35px var(--accent), 0 0 70px var(--accent-glow); }
+}
+
+/* ── Scrollbar (Firefox) ─────────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: var(--border) var(--panel-bg); }

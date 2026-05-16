@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TETRIS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="game-container">
+
+      <!-- ── Left Panel: Stats + Controls ── -->
+      <aside class="panel panel--left">
+        <div class="info-box">
+          <div class="info-label">SCORE</div>
+          <div class="info-value" id="score">0</div>
+        </div>
+        <div class="info-box">
+          <div class="info-label">HIGH SCORE</div>
+          <div class="info-value" id="high-score">0</div>
+        </div>
+        <div class="info-box">
+          <div class="info-label">LEVEL</div>
+          <div class="info-value" id="level">1</div>
+        </div>
+        <div class="info-box">
+          <div class="info-label">LINES</div>
+          <div class="info-value" id="lines">0</div>
+        </div>
+        <div class="info-box controls">
+          <div class="info-label">CONTROLS</div>
+          <div class="key-row"><span class="key">← →</span><span class="key-desc">Move</span></div>
+          <div class="key-row"><span class="key">↑ / X</span><span class="key-desc">Rotate CW</span></div>
+          <div class="key-row"><span class="key">Z</span><span class="key-desc">Rotate CCW</span></div>
+          <div class="key-row"><span class="key">↓</span><span class="key-desc">Soft Drop</span></div>
+          <div class="key-row"><span class="key">Space</span><span class="key-desc">Hard Drop</span></div>
+          <div class="key-row"><span class="key">P</span><span class="key-desc">Pause</span></div>
+        </div>
+      </aside>
+
+      <!-- ── Main Board Canvas ── -->
+      <div id="board-wrapper">
+        <canvas id="game-canvas"></canvas>
+
+        <!-- Overlays (start / pause / game over) -->
+        <div id="overlay" class="overlay">
+          <div class="overlay-inner">
+            <h1 id="overlay-title">TETRIS</h1>
+            <p  id="overlay-message">Press Enter or Space<br>to Start</p>
+            <button id="overlay-btn">START GAME</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Right Panel: Next Piece ── -->
+      <aside class="panel panel--right">
+        <div class="info-box">
+          <div class="info-label">NEXT</div>
+          <canvas id="next-canvas"></canvas>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
