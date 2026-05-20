@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#060606">
+<title>aHIT & VRT — Vestibular Rehab</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060606; --s1:#111; --s2:#1a1a1a; --bd:#252525;
+  --ac:#00d4ff; --ac2:#ff6b35; --ok:#00e676; --err:#ff1744;
+  --tx:#d8d8d8; --td:#555;
+  --ch:56vh;
+}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg); color:var(--tx);
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;
+  touch-action:none; -webkit-user-select:none; user-select:none;
+  height:100dvh; display:flex; flex-direction:column;
+}
+
+/* ── Permission Screen ── */
+#scr-perm{
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; height:100dvh; padding:1.8rem;
+  gap:1.4rem; text-align:center;
+  background:radial-gradient(ellipse at 50% 30%,#0b1e2e 0%,#060606 65%);
+}
+.perm-icon{
+  width:72px; height:72px; border-radius:18px;
+  background:linear-gradient(135deg,var(--ac),#005fd4);
+  display:flex; align-items:center; justify-content:center;
+  font-size:2.2rem; box-shadow:0 0 40px rgba(0,212,255,0.25);
+}
+.perm-h1{
+  font-size:clamp(1.4rem,5vw,1.8rem); font-weight:800; letter-spacing:-0.5px;
+  background:linear-gradient(135deg,var(--ac) 0%,#fff 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.perm-sub{font-size:.85rem; color:var(--td); line-height:1.6; max-width:310px}
+.feature-grid{display:flex; flex-direction:column; gap:.6rem; width:100%; max-width:340px}
+.feat{
+  display:flex; align-items:center; gap:.75rem;
+  background:var(--s1); border:1px solid var(--bd);
+  border-radius:10px; padding:.7rem .9rem; font-size:.82rem; text-align:left;
+}
+.feat-ico{font-size:1.2rem; flex-shrink:0}
+.feat strong{display:block; margin-bottom:2px}
+.feat span{color:var(--td); font-size:.75rem}
+.btn-prim{
+  width:100%; max-width:340px; padding:.95rem;
+  background:linear-gradient(135deg,var(--ac),#005fd4);
+  border:none; border-radius:12px; color:#000; font-size:.95rem; font-weight:700;
+  cursor:pointer; transition:transform .1s,opacity .2s; -webkit-tap-highlight-color:transparent;
+}
+.btn-prim:active{transform:scale(.98); opacity:.9}
+.perm-note{font-size:.72rem; color:var(--td); max-width:290px; line-height:1.5}
+
+/* ── Main Screen ── */
+#scr-main{display:none; flex-direction:column; height:100dvh; overflow:hidden}
+#scr-main.show{display:flex}
+
+/* ── Canvas Zone ── */
+#cz{
+  position:relative; height:var(--ch); flex-shrink:0;
+  background:#000; overflow:hidden;
+}
+#cz.full{height:100dvh !important; flex-shrink:0}
+canvas{display:block; width:100%; height:100%}
+
+/* Flash char — constrained to target zone via JS bottom property */
+#flash{
+  position:absolute; top:0; left:0; right:0; bottom:42%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:clamp(5rem,18vw,9rem); font-weight:900;
+  color:#fff; opacity:0; pointer-events:none;
+  text-shadow:0 0 40px rgba(255,255,255,.6); transition:none;
+}
+#flash.on{opacity:1}
+
+/* Status bar */
+#sbar{
+  position:absolute; top:0; left:0; right:0; padding:.35rem .75rem;
+  display:flex; align-items:center; gap:.5rem;
+  font-size:.65rem; color:var(--td);
+  background:linear-gradient(rgba(0,0,0,.55),transparent); pointer-events:none;
+}
+.sdot{width:6px; height:6px; border-radius:50%; background:var(--td); flex-shrink:0}
+.sdot.live{background:var(--ok); box-shadow:0 0 5px var(--ok)}
+#mode-tag{margin-left:auto; font-weight:700; font-size:.7rem; color:var(--ac); letter-spacing:.5px}
+
+/* Velocity strip */
+#vstrip{
+  position:absolute; left:.5rem; top:5%; height:52%;
+  width:5px; background:rgba(255,255,255,.08); border-radius:3px; overflow:hidden;
+}
+#vbar{position:absolute; bottom:0; left:0; right:0; border-radius:3px; transition:height .04s linear,background .1s}
+
+/* Metrics chips — bottom of target zone */
+#metrics{
+  position:absolute; left:0; right:0; bottom:42%;
+  display:flex; gap:.5rem; justify-content:center; padding:.5rem;
+  background:linear-gradient(transparent,rgba(0,0,0,.75));
+  opacity:0; transition:opacity .25s; pointer-events:none;
+}
+#metrics.show{opacity:1}
+.chip{padding:.25rem .6rem; border-radius:20px; font-size:.72rem; font-weight:700; border:1px solid}
+.chip-d{background:rgba(0,212,255,.15); border-color:var(--ac); color:var(--ac)}
+.chip-v{background:rgba(255,107,53,.15); border-color:var(--ac2); color:var(--ac2)}
+.chip-ok{background:rgba(0,230,118,.15); border-color:var(--ok); color:var(--ok)}
+.chip-er{background:rgba(255,23,68,.15); border-color:var(--err); color:var(--err)}
+
+/* Metro dot */
+#mdot{
+  position:absolute; top:.6rem; right:.75rem;
+  width:10px; height:10px; border-radius:50%;
+  background:var(--ac); opacity:0; transition:opacity .05s;
+}
+#mdot.beat{opacity:1}
+
+/* ── Controls Panel ── */
+#cp{
+  flex:1; min-height:0; overflow-y:auto;
+  background:var(--s1); border-top:1px solid var(--bd);
+  display:flex; flex-direction:column; gap:.5rem;
+  padding:.7rem; -webkit-overflow-scrolling:touch;
+}
+#cp.hide{display:none}
+
+.mode-row{
+  display:grid; grid-template-columns:1fr 1fr; gap:.35rem;
+  background:var(--s2); padding:.25rem; border-radius:9px; border:1px solid var(--bd);
+}
+.mbtn{
+  padding:.55rem; border:none; border-radius:6px;
+  background:transparent; color:var(--td); font-size:.78rem; font-weight:600;
+  cursor:pointer; transition:all .15s; -webkit-tap-highlight-color:transparent;
+}
+.mbtn.on{background:var(--ac); color:#000}
+
+.cr{
+  display:flex; align-items:center; gap:.6rem;
+  background:var(--s2); border:1px solid var(--bd); border-radius:8px; padding:.55rem .75rem;
+}
+.cl{font-size:.72rem; color:var(--td); min-width:85px; flex-shrink:0; line-height:1.3}
+.cl em{display:block; font-size:.62rem; color:#3a3a3a; font-style:normal}
+.cv{font-size:.8rem; font-weight:700; color:var(--ac); min-width:44px; text-align:right; flex-shrink:0}
+
+input[type=range]{
+  flex:1; -webkit-appearance:none; appearance:none;
+  height:3px; background:var(--bd); border-radius:2px; outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:18px; height:18px;
+  border-radius:50%; background:var(--ac); cursor:pointer;
+  box-shadow:0 0 0 3px rgba(0,212,255,.2);
+}
+input[type=range]::-moz-range-thumb{
+  width:18px; height:18px; border-radius:50%; background:var(--ac); border:none; cursor:pointer;
+}
+
+.gm-row{display:flex; gap:.35rem}
+.gmbtn{
+  flex:1; padding:.45rem; border:1px solid var(--bd); border-radius:7px;
+  background:transparent; color:var(--td); font-size:.75rem; font-weight:600;
+  cursor:pointer; transition:all .15s; -webkit-tap-highlight-color:transparent;
+}
+.gmbtn.on{background:rgba(0,212,255,.12); border-color:var(--ac); color:var(--ac)}
+
+.slbl{
+  font-size:.62rem; font-weight:700; letter-spacing:.8px;
+  text-transform:uppercase; color:var(--td); padding:0 .15rem; margin-top:.1rem;
+}
+
+#btn-go{
+  width:100%; padding:.8rem; border:none; border-radius:10px;
+  background:linear-gradient(135deg,var(--ac),#005fd4);
+  color:#000; font-size:.9rem; font-weight:700; cursor:pointer;
+  transition:all .15s; -webkit-tap-highlight-color:transparent; letter-spacing:.3px;
+}
+#btn-go.stop{background:linear-gradient(135deg,#ff4444,#cc0000); color:#fff}
+#btn-go:active{transform:scale(.98)}
+
+#btn-hide{
+  width:100%; padding:.42rem; border:1px solid var(--bd); border-radius:7px;
+  background:transparent; color:var(--td); font-size:.7rem;
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+
+#log-wrap{background:var(--s2); border:1px solid var(--bd); border-radius:8px; overflow:hidden}
+.log-hdr{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:.4rem .7rem; border-bottom:1px solid var(--bd);
+}
+.log-hdr-lbl{font-size:.62rem; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--td)}
+#btn-clr{font-size:.62rem; color:var(--td); background:none; border:none; cursor:pointer; padding:.15rem .4rem}
+#log-tbl{width:100%; border-collapse:collapse; font-size:.7rem}
+#log-tbl th{
+  padding:.35rem .55rem; text-align:left; color:var(--td); font-size:.6rem;
+  letter-spacing:.4px; text-transform:uppercase; border-bottom:1px solid var(--bd);
+}
+#log-tbl td{padding:.35rem .55rem; border-bottom:1px solid rgba(255,255,255,.03)}
+#log-tbl tr:last-child td{border:none}
+.ld{color:#7cb3ff} .rd{color:#ffb060}
+.lp{color:var(--ok); font-weight:700} .lf{color:var(--err); font-weight:700}
+#log-empty{padding:.9rem; text-align:center; color:var(--td); font-size:.72rem}
+
+#tap-ov{display:none; position:fixed; inset:0; z-index:80; background:transparent; cursor:pointer}
+#tap-ov.show{display:block}
+#restore-hint{
+  position:fixed; bottom:1rem; left:50%; transform:translateX(-50%);
+  background:rgba(255,255,255,.08); border:1px solid var(--bd);
+  border-radius:20px; padding:.3rem .9rem; font-size:.65rem; color:var(--td);
+  pointer-events:none; z-index:81; white-space:nowrap;
+}
+#restore-hint.show{display:block}
+.hidden{display:none!important}
+
+@media(orientation:landscape){
+  :root{--ch:100vh}
+  #scr-main{flex-direction:row}
+  #cz{height:100dvh!important; flex:1}
+  #cp{width:260px; min-width:260px; height:100dvh; border-top:none; border-left:1px solid var(--bd)}
+}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bd); border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ PERMISSION SCREEN ═══════════ -->
+<div id="scr-perm">
+  <div class="perm-icon">⚡</div>
+  <h1 class="perm-h1">Vestibular Rehab</h1>
+  <p class="perm-sub">Clinical aHIT simulation and progressive VOR adaptation. Requires gyroscope access.</p>
+  <div class="feature-grid">
+    <div class="feat"><span class="feat-ico">🎯</span><div><strong>Active Head Impulse Test</strong><span>Impulse detection · visual catch · peak velocity</span></div></div>
+    <div class="feat"><span class="feat-ico">🔄</span><div><strong>VOR Adaptation Exercises</strong><span>X1 stabilization · X2 adaptation · metronome</span></div></div>
+    <div class="feat"><span class="feat-ico">🧠</span><div><strong>3D Canal Visualization</strong><span>Live semicircular canal activation · VOR eye tracking</span></div></div>
+  </div>
+  <button class="btn-prim" id="btn-perm">Calibrate &amp; Authorize Sensors</button>
+  <p class="perm-note" id="perm-note">iOS 13+ requires explicit permission for motion sensors. Must be served over HTTPS.</p>
+</div>
+
+<!-- ═══════════ MAIN SCREEN ═══════════ -->
+<div id="scr-main">
+  <div id="cz">
+    <canvas id="cv"></canvas>
+    <div id="sbar">
+      <div class="sdot" id="sdot"></div>
+      <span id="stxt">INITIALIZING</span>
+      <span id="mode-tag">aHIT</span>
+    </div>
+    <div id="vstrip"><div id="vbar"></div></div>
+    <div id="flash"></div>
+    <div id="metrics">
+      <span class="chip chip-d" id="c-dir">LEFT</span>
+      <span class="chip chip-v" id="c-vel">0 °/s</span>
+      <span class="chip chip-ok" id="c-res">PASS</span>
+    </div>
+    <div id="mdot"></div>
+  </div>
+
+  <div id="cp">
+    <div class="mode-row">
+      <button class="mbtn on" id="mbtn-ahit" onclick="setMode('aHIT')">Active HIT</button>
+      <button class="mbtn" id="mbtn-vrt" onclick="setMode('VRT')">VRT Exercise</button>
+    </div>
+
+    <div id="sec-ahit">
+      <div class="slbl">aHIT Settings</div>
+      <div class="cr">
+        <div class="cl">Threshold<em>Min impulse velocity</em></div>
+        <input type="range" id="sl-thr" min="60" max="300" value="150" step="5"
+               oninput="cfg.threshold=+this.value;document.getElementById('vl-thr').textContent=this.value+'°/s'">
+        <div class="cv" id="vl-thr">150°/s</div>
+      </div>
+      <div class="cr">
+        <div class="cl">Cooldown<em>Between impulses</em></div>
+        <input type="range" id="sl-cd" min="200" max="2000" value="600" step="100"
+               oninput="cfg.cooldown=+this.value;document.getElementById('vl-cd').textContent=(this.value/1000).toFixed(1)+'s'">
+        <div class="cv" id="vl-cd">0.6s</div>
+      </div>
+    </div>
+
+    <div id="sec-vrt" class="hidden">
+      <div class="slbl">VOR Protocol</div>
+      <div class="gm-row">
+        <button class="gmbtn on" id="gm-x1" onclick="setGainMode('x1')">X1 — Stabilize</button>
+        <button class="gmbtn" id="gm-x2" onclick="setGainMode('x2')">X2 — Adapt</button>
+      </div>
+      <div class="cr">
+        <div class="cl">Gain Modifier<em>Target multiplier</em></div>
+        <input type="range" id="sl-gain" min="-2.0" max="2.0" value="1.0" step="0.1"
+               oninput="cfg.gain=+this.value;document.getElementById('vl-gain').textContent=(+this.value).toFixed(1)+'×'">
+        <div class="cv" id="vl-gain">1.0×</div>
+      </div>
+      <div class="cr">
+        <div class="cl">Metronome<em>BPM pacing guide</em></div>
+        <input type="range" id="sl-bpm" min="60" max="180" value="90" step="5"
+               oninput="cfg.bpm=+this.value;document.getElementById('vl-bpm').textContent=this.value+' BPM';restartMetro()">
+        <div class="cv" id="vl-bpm">90 BPM</div>
+      </div>
+    </div>
+
+    <button id="btn-go" onclick="toggleSession()">▶ Start Session</button>
+    <button id="btn-hide" onclick="hideUI()">Hide Controls (Patient View)</button>
+
+    <div id="log-wrap">
+      <div class="log-hdr">
+        <span class="log-hdr-lbl">Session Log</span>
+        <button id="btn-clr" onclick="clearLog()">Clear</button>
+      </div>
+      <div id="log-empty">No impulses logged yet</div>
+      <table id="log-tbl" class="hidden">
+        <thead><tr><th>Time</th><th>Dir</th><th>Peak °/s</th><th>Result</th></tr></thead>
+        <tbody id="log-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="tap-ov" onclick="showUI()"></div>
+<div id="restore-hint" class="hidden">Double-tap canvas to restore controls</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════
+const cfg = {
+  threshold: 150,
+  cooldown:  600,
+  gain:      1.0,
+  gainMode: 'x1',
+  bpm:       90,
+  mode:     'aHIT',
+};
+
+const HEAD_FRAC = 0.40; // fraction of canvas height used for 3D head
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+const S = {
+  running: false, sensorOk: false,
+  yaw: 0, rawAlpha: 0, rawBeta: 0, rawGamma: 0,
+  imp: 'idle', peak: 0, dir: '', impStart: 0, peakSamples: 0,
+  angle: 0, targetX: 0,
+  metro: false, mId: null, beat: false, audioCtx: null,
+  log: [],
+  W: 0, H: 0, animId: null,
+  velBuf: new Float32Array(120), velIdx: 0,
+};
+
+// ═══════════════════════════════════════════════════════
+// 3D HEAD STATE
+// ═══════════════════════════════════════════════════════
+const HD = {
+  yaw:    0,   // smoothed display yaw degrees
+  pitch:  0,   // smoothed display pitch degrees
+  eyeOfs: 0,   // iris offset (normalized -1..1)
+};
+
+// Canal activation: 0 = inactive, 1 = warning (amber), 2 = fired (red)
+const CS = { rHC:0, rAC:0, rPC:0, lHC:0, lAC:0, lPC:0 };
+
+// ═══════════════════════════════════════════════════════
+// 3D MATH ENGINE
+// ═══════════════════════════════════════════════════════
+const M3 = {
+  // Rotate point around Y-axis
+  ry(x, y, z, a) {
+    const c = Math.cos(a), s = Math.sin(a);
+    return [c*x + s*z, y, -s*x + c*z];
+  },
+  // Rotate point around X-axis
+  rx(x, y, z, a) {
+    const c = Math.cos(a), s = Math.sin(a);
+    return [x, c*y - s*z, s*y + c*z];
+  },
+  // Perspective project world→screen. camD = camera distance in head-units.
+  proj(wx, wy, wz, cx, cy, R, camD = 3.8) {
+    const s = camD / (camD + wz);
+    return { sx: cx + wx * s * R, sy: cy - wy * s * R, depth: wz, scale: s };
+  },
+  // Build circle points in 3D around center with given normal vector.
+  circle(cx, cy, cz, nx, ny, nz, r, N = 28) {
+    const len = Math.sqrt(nx*nx + ny*ny + nz*nz);
+    nx /= len; ny /= len; nz /= len;
+    // Find perpendicular basis vector u via Gram-Schmidt
+    let ux = Math.abs(nx) < 0.85 ? 1 : 0;
+    let uy = Math.abs(nx) < 0.85 ? 0 : 1;
+    let uz = 0;
+    const d = ux*nx + uy*ny + uz*nz;
+    ux -= d*nx; uy -= d*ny; uz -= d*nz;
+    const ul = Math.sqrt(ux*ux + uy*uy + uz*uz);
+    ux /= ul; uy /= ul; uz /= ul;
+    // v = n × u
+    const vx = ny*uz - nz*uy;
+    const vy = nz*ux - nx*uz;
+    const vz = nx*uy - ny*ux;
+    return Array.from({ length: N }, (_, i) => {
+      const a = (i / N) * Math.PI * 2;
+      const ca = Math.cos(a), sa = Math.sin(a);
+      return [
+        cx + r * (ux*ca + vx*sa),
+        cy + r * (uy*ca + vy*sa),
+        cz + r * (uz*ca + vz*sa),
+      ];
+    });
+  },
+};
+
+// ═══════════════════════════════════════════════════════
+// CANAL GEOMETRY (head-local coords, head-radius = 1.0)
+// ═══════════════════════════════════════════════════════
+// Semicircular canals of the inner ear:
+//   HC – Horizontal canal   (detects YAW   rotation)
+//   AC – Anterior canal     (detects PITCH  rotation, with roll)
+//   PC – Posterior canal    (detects ROLL   rotation, with pitch)
+// Right ear at +X, left ear at -X.
+// Canal loops are ~16% of head radius.
+const CR = 0.155; // canal ring radius
+function _n(x,y,z){const l=Math.sqrt(x*x+y*y+z*z);return[x/l,y/l,z/l]}
+
+const CANALS = [
+  // id,   label, side, center-xyz,         normal-xyz (pre-normalized below)
+  { id:'rHC', lbl:'HC', side:'R', cen:[ 0.68,-0.06,-0.08], nrm:_n(0, 1, 0.55) },
+  { id:'rAC', lbl:'AC', side:'R', cen:[ 0.68,-0.06,-0.08], nrm:_n(0.62, 0, 0.78) },
+  { id:'rPC', lbl:'PC', side:'R', cen:[ 0.68,-0.06,-0.08], nrm:_n(0.62, 0,-0.78) },
+  { id:'lHC', lbl:'HC', side:'L', cen:[-0.68,-0.06,-0.08], nrm:_n(0, 1, 0.55) },
+  { id:'lAC', lbl:'AC', side:'L', cen:[-0.68,-0.06,-0.08], nrm:_n(-0.62,0, 0.78) },
+  { id:'lPC', lbl:'PC', side:'L', cen:[-0.68,-0.06,-0.08], nrm:_n(-0.62,0,-0.78) },
+];
+CANALS.forEach(c => {
+  c.pts = M3.circle(...c.cen, ...c.nrm, CR, 28);
+});
+
+// ═══════════════════════════════════════════════════════
+// DOM REFS
+// ═══════════════════════════════════════════════════════
+const el = id => document.getElementById(id);
+const D = {
+  permScr: el('scr-perm'), mainScr: el('scr-main'),
+  cv: el('cv'), sdot: el('sdot'), stxt: el('stxt'), modeTag: el('mode-tag'),
+  flash: el('flash'), metrics: el('metrics'),
+  cDir: el('c-dir'), cVel: el('c-vel'), cRes: el('c-res'),
+  vbar: el('vbar'), mdot: el('mdot'),
+  cz: el('cz'), cp: el('cp'), btnGo: el('btn-go'),
+  secAHIT: el('sec-ahit'), secVRT: el('sec-vrt'),
+  logBody: el('log-body'), logTbl: el('log-tbl'), logEmpty: el('log-empty'),
+  tapOv: el('tap-ov'), restHint: el('restore-hint'),
+};
+let ctx;
+
+// ═══════════════════════════════════════════════════════
+// PERMISSION & INIT
+// ═══════════════════════════════════════════════════════
+el('btn-perm').addEventListener('click', async () => {
+  const btn = el('btn-perm');
+  btn.textContent = 'Requesting…'; btn.disabled = true;
+  try {
+    if (typeof DeviceMotionEvent !== 'undefined' &&
+        typeof DeviceMotionEvent.requestPermission === 'function') {
+      const r = await DeviceMotionEvent.requestPermission();
+      if (r !== 'granted') {
+        el('perm-note').textContent = '⚠ Permission denied. Reload and allow sensor access.';
+        btn.textContent = 'Retry'; btn.disabled = false; return;
+      }
+    }
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      await DeviceOrientationEvent.requestPermission().catch(() => {});
+    }
+  } catch (_) {}
+  launchApp();
+});
+
+function launchApp() {
+  D.permScr.style.display = 'none';
+  D.mainScr.classList.add('show');
+  initSensors(); initCanvas(); startRenderLoop(); updateModeUI();
+}
+
+// ═══════════════════════════════════════════════════════
+// SENSOR SETUP
+// ═══════════════════════════════════════════════════════
+function initSensors() {
+  if (typeof DeviceMotionEvent === 'undefined') {
+    D.stxt.textContent = 'NO MOTION API'; addDesktopSim(); return;
+  }
+  window.addEventListener('devicemotion', onMotion, { passive: true });
+  window.addEventListener('devicemotion', () => {
+    S.sensorOk = true; D.sdot.classList.add('live'); D.stxt.textContent = 'SENSORS LIVE';
+  }, { once: true, passive: true });
+}
+
+function onMotion(e) {
+  const rr = e.rotationRate; if (!rr) return;
+  S.rawAlpha = rr.alpha || 0;
+  S.rawBeta  = rr.beta  || 0;
+  S.rawGamma = rr.gamma || 0;
+  const otype = (screen.orientation && screen.orientation.type) ||
+    (window.innerWidth > window.innerHeight ? 'landscape-primary' : 'portrait-primary');
+  if      (otype === 'landscape-primary')   S.yaw = -S.rawBeta;
+  else if (otype === 'landscape-secondary') S.yaw =  S.rawBeta;
+  else                                      S.yaw =  S.rawGamma;
+  S.velBuf[S.velIdx % S.velBuf.length] = Math.abs(S.yaw); S.velIdx++;
+  if (S.running) processGyro();
+}
+
+function addDesktopSim() {
+  D.stxt.textContent = 'DEMO (← → arrows simulate impulse)';
+  D.sdot.style.background = '#888';
+  const DVEL = 220; let held = { l:false, r:false }; let si = null;
+  const push = v => {
+    S.yaw = v; S.rawBeta = v * 0.3;
+    S.velBuf[S.velIdx % S.velBuf.length] = Math.abs(v); S.velIdx++;
+    if (S.running) processGyro();
+  };
+  window.addEventListener('keydown', e => {
+    if (e.repeat) return;
+    if (e.key === 'ArrowLeft')  held.l = true;
+    if (e.key === 'ArrowRight') held.r = true;
+    if (!si) si = setInterval(() => {
+      if (held.l) push(-DVEL); else if (held.r) push(DVEL); else push(0);
+    }, 16);
+  });
+  window.addEventListener('keyup', e => {
+    if (e.key === 'ArrowLeft')  held.l = false;
+    if (e.key === 'ArrowRight') held.r = false;
+    if (!held.l && !held.r) { push(0); clearInterval(si); si = null; }
+  });
+  el('perm-note').style.display = 'none';
+  el('scr-perm').querySelector('.perm-sub').textContent =
+    'Desktop demo: hold ← or → arrow keys to simulate head impulses.';
+}
+
+// ═══════════════════════════════════════════════════════
+// GYRO DISPATCH
+// ═══════════════════════════════════════════════════════
+function processGyro() {
+  if (cfg.mode === 'aHIT') processImpulse(); else processVRT();
+}
+
+// ═══════════════════════════════════════════════════════
+// aHIT — IMPULSE FSM
+// ═══════════════════════════════════════════════════════
+let _flashTmr = null, _coolTmr = null;
+
+function processImpulse() {
+  const absV = Math.abs(S.yaw);
+  if (S.imp === 'idle') {
+    if (absV > cfg.threshold) {
+      S.imp = 'rise'; S.peak = absV;
+      S.dir = S.yaw > 0 ? 'RIGHT' : 'LEFT';
+      S.impStart = Date.now(); S.peakSamples = 0;
+    }
+    return;
+  }
+  if (S.imp === 'rise') {
+    if (absV > S.peak) { S.peak = absV; S.dir = S.yaw > 0 ? 'RIGHT' : 'LEFT'; S.peakSamples = 0; }
+    else S.peakSamples++;
+    const elapsed = Date.now() - S.impStart;
+    if ((S.peakSamples >= 3 && S.peak > cfg.threshold && elapsed > 40) ||
+        (absV < cfg.threshold * 0.45 && S.peak > cfg.threshold && elapsed > 50)) {
+      fireVisualCatch();
+    }
+  }
+}
+
+function fireVisualCatch() {
+  S.imp = 'flash';
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  D.flash.textContent = chars[Math.floor(Math.random() * chars.length)];
+  D.flash.classList.add('on');
+  if (_flashTmr) clearTimeout(_flashTmr);
+  _flashTmr = setTimeout(() => {
+    D.flash.classList.remove('on');
+    commitLog(); showMetrics(); enterCooldown();
+  }, 100);
+}
+
+function enterCooldown() {
+  S.imp = 'cool'; S.peakSamples = 0;
+  if (_coolTmr) clearTimeout(_coolTmr);
+  _coolTmr = setTimeout(() => { S.imp = 'idle'; S.peak = 0; hideMetrics(); }, cfg.cooldown);
+}
+
+// ═══════════════════════════════════════════════════════
+// VRT PROCESSING
+// ═══════════════════════════════════════════════════════
+let _lastVRTt = 0;
+function processVRT() {
+  const now = performance.now();
+  const dt  = Math.min((now - (_lastVRTt || now)) / 1000, 0.05); _lastVRTt = now;
+  S.angle   = (S.angle + S.yaw * dt) * 0.985;
+  const raw = -S.angle * cfg.gain * (S.W * 0.008);
+  S.targetX = Math.max(-S.W * 0.42, Math.min(S.W * 0.42, raw));
+}
+
+// ═══════════════════════════════════════════════════════
+// CANVAS INIT & RESIZE
+// ═══════════════════════════════════════════════════════
+function initCanvas() {
+  ctx = D.cv.getContext('2d');
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  if (screen.orientation) screen.orientation.addEventListener('change', () => setTimeout(resizeCanvas, 120));
+}
+
+function resizeCanvas() {
+  const zone = D.cz.getBoundingClientRect();
+  const dpr  = Math.min(window.devicePixelRatio || 1, 3);
+  const W = zone.width, H = zone.height;
+  D.cv.width  = W * dpr; D.cv.height  = H * dpr;
+  D.cv.style.width  = W + 'px'; D.cv.style.height = H + 'px';
+  ctx.scale(dpr, dpr);
+  S.W = W; S.H = H; S.targetX = 0; S.angle = 0;
+
+  // Constrain overlays to the target zone (top portion)
+  const headPx = Math.round(H * HEAD_FRAC);
+  D.flash.style.bottom   = headPx + 'px';
+  D.metrics.style.bottom = headPx + 'px';
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER LOOP
+// ═══════════════════════════════════════════════════════
+function startRenderLoop() {
+  let lastTs = 0;
+  function loop(ts) {
+    const dt = Math.min((ts - (lastTs || ts)) / 1000, 0.05); lastTs = ts;
+    updateHead(dt);
+    draw(dt);
+    updateHUD();
+    S.animId = requestAnimationFrame(loop);
+  }
+  S.animId = requestAnimationFrame(loop);
+}
+
+function updateHUD() {
+  const absV   = Math.abs(S.yaw);
+  const pct    = Math.min(100, (absV / 400) * 100);
+  const colour = absV > cfg.threshold ? '#ff4444' : absV > cfg.threshold * 0.6 ? '#ffaa00' : 'var(--ac)';
+  D.vbar.style.height = pct + '%'; D.vbar.style.background = colour;
+}
+
+// ═══════════════════════════════════════════════════════
+// 3D HEAD UPDATE — smooth orientation & canal activation
+// ═══════════════════════════════════════════════════════
+function updateHead(dt) {
+  // Smoothly track yaw and pitch for visual display
+  HD.yaw   = HD.yaw   * 0.91 + S.yaw       * dt * 0.55;
+  HD.pitch = HD.pitch * 0.91 + (S.rawBeta  || 0) * dt * 0.30;
+  HD.yaw   = Math.max(-40, Math.min(40, HD.yaw));
+  HD.pitch = Math.max(-22, Math.min(22, HD.pitch));
+
+  // VOR eye offset: iris moves opposite to head yaw (compensatory)
+  const eyeTgt = Math.max(-1, Math.min(1, -S.yaw / 280));
+  HD.eyeOfs = HD.eyeOfs * 0.78 + eyeTgt * 0.22;
+
+  // Canal activation based on live velocity
+  const absY = Math.abs(S.yaw), right = S.yaw > 0, run = S.running;
+  const absP = Math.abs(S.rawBeta  || 0);
+  const absR = Math.abs(S.rawAlpha || 0);
+
+  const lvl = (v) => !run ? 0 : v >= cfg.threshold ? 2 : v > cfg.threshold * 0.32 ? 1 : 0;
+
+  // Horizontal canals: right HC fires on rightward rotation, left HC on leftward
+  CS.rHC = right ? lvl(absY) : 0;
+  CS.lHC = right ? 0 : lvl(absY);
+
+  // Anterior canals: pitch (nodding up/down)
+  CS.rAC = CS.lAC = lvl(absP * 1.1);
+
+  // Posterior canals: roll
+  CS.rPC = CS.lPC = lvl(absR * 1.1);
+}
+
+// ═══════════════════════════════════════════════════════
+// MAIN DRAW — splits canvas into target zone + head zone
+// ═══════════════════════════════════════════════════════
+function draw(dt) {
+  const W = S.W, H = S.H;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+
+  const headH   = Math.round(H * HEAD_FRAC);
+  const targetH = H - headH;
+
+  if (cfg.mode === 'aHIT') drawAHIT(W, targetH);
+  else                     drawVRT(W, targetH);
+
+  drawSparkline(W, targetH);
+
+  // Separator line
+  ctx.strokeStyle = 'rgba(255,255,255,.06)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, targetH); ctx.lineTo(W, targetH); ctx.stroke();
+
+  drawHead3D({ x: 0, y: targetH, w: W, h: headH });
+}
+
+// ═══════════════════════════════════════════════════════
+// TARGET ZONE DRAWING
+// ═══════════════════════════════════════════════════════
+function drawAHIT(W, H) {
+  const cx = W / 2, cy = H / 2, sc = Math.min(W, H);
+  ctx.strokeStyle = 'rgba(255,255,255,.03)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, H);
+  ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke();
+
+  const TR = sc * 0.036, RR = TR * 2.4, arm = RR * 1.9;
+  ctx.beginPath(); ctx.arc(cx, cy, RR, 0, Math.PI*2);
+  ctx.strokeStyle = 'rgba(0,212,255,.22)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dx,dy]) => {
+    ctx.moveTo(cx + dx*(RR+5), cy + dy*(RR+5));
+    ctx.lineTo(cx + dx*arm,    cy + dy*arm);
+  });
+  ctx.stroke();
+
+  const dotCols = { idle:'rgba(255,255,255,.65)', rise:'#ffaa00', flash:'#fff', cool:'rgba(0,212,255,.5)' };
+  ctx.beginPath(); ctx.arc(cx, cy, TR, 0, Math.PI*2);
+  ctx.fillStyle = dotCols[S.imp] || '#fff'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fillStyle = '#000'; ctx.fill();
+
+  if (S.running) {
+    const absV = Math.abs(S.yaw), frac = Math.min(1, absV / 400);
+    if (frac > 0.01) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, RR + 9, -Math.PI/2, -Math.PI/2 + frac * Math.PI*2);
+      ctx.strokeStyle = absV >= cfg.threshold ? '#ff4444' : 'var(--ac)';
+      ctx.lineWidth = 3; ctx.stroke();
+    }
+  }
+
+  ctx.textAlign = 'center';
+  if (S.running && S.imp === 'idle') {
+    ctx.fillStyle = 'rgba(255,255,255,.18)';
+    ctx.font = `${sc*0.024}px -apple-system,system-ui`;
+    ctx.fillText('WAITING FOR IMPULSE', cx, H - sc*0.05);
+    ctx.fillStyle = 'rgba(255,255,255,.1)';
+    ctx.font = `${sc*0.018}px -apple-system,system-ui`;
+    ctx.fillText(`Threshold: ${cfg.threshold} °/s`, cx, H - sc*0.028);
+  }
+  if (S.imp === 'cool') {
+    ctx.fillStyle = 'rgba(0,212,255,.45)';
+    ctx.font = `${sc*0.022}px -apple-system,system-ui`;
+    ctx.fillText('RESETTING…', cx, H - sc*0.05);
+  }
+  if (!S.running) {
+    ctx.fillStyle = 'rgba(255,255,255,.1)';
+    ctx.font = `${sc*0.022}px -apple-system,system-ui`;
+    ctx.fillText('PRESS START TO BEGIN', cx, H - sc*0.05);
+  }
+}
+
+function drawVRT(W, H) {
+  const cx = W/2, cy = H/2, tx = cx + S.targetX, ty = cy;
+  const isX2 = cfg.gainMode === 'x2', tCol = isX2 ? '#ff6b35' : '#00d4ff';
+
+  ctx.strokeStyle = 'rgba(255,255,255,.025)'; ctx.lineWidth = 1;
+  const gs = 42;
+  for (let x = gs/2; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = gs/2; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx-16,cy); ctx.lineTo(cx+16,cy);
+  ctx.moveTo(cx,cy-16); ctx.lineTo(cx,cy+16); ctx.stroke();
+
+  ctx.beginPath(); ctx.arc(tx, ty, 26, 0, Math.PI*2);
+  ctx.fillStyle = isX2 ? 'rgba(255,107,53,.08)' : 'rgba(0,212,255,.08)'; ctx.fill();
+
+  ctx.beginPath(); ctx.arc(tx, ty, 15, 0, Math.PI*2);
+  ctx.strokeStyle = tCol; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(tx, ty, 5, 0, Math.PI*2); ctx.fillStyle = tCol; ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(tx-22,ty); ctx.lineTo(tx-9,ty); ctx.moveTo(tx+9,ty); ctx.lineTo(tx+22,ty);
+  ctx.moveTo(tx,ty-22); ctx.lineTo(tx,ty-9); ctx.moveTo(tx,ty+9); ctx.lineTo(tx,ty+22);
+  ctx.stroke();
+
+  if (S.beat) {
+    ctx.beginPath(); ctx.arc(tx, ty, 30, 0, Math.PI*2);
+    ctx.strokeStyle = tCol + '66'; ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  const sc = Math.min(W,H);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.font = `${sc*0.023}px -apple-system,system-ui`;
+  ctx.fillText(isX2 ? 'VOR X2 — ADAPTATION' : 'VOR X1 — STABILIZATION', cx, H - sc*0.055);
+  ctx.fillStyle = tCol + 'aa'; ctx.font = `${sc*0.018}px -apple-system,system-ui`;
+  ctx.fillText(`Gain: ${cfg.gain.toFixed(1)}×  ·  ${cfg.bpm} BPM`, cx, H - sc*0.03);
+  if (!S.running) {
+    ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.font = `${sc*0.022}px -apple-system,system-ui`;
+    ctx.fillText('PRESS START TO BEGIN', cx, H - sc*0.09);
+  }
+}
+
+function drawSparkline(W, tH) {
+  const n = S.velBuf.length, barH = Math.min(36, tH * 0.12);
+  const y0 = tH - barH - 2;
+  let max = cfg.threshold * 1.6;
+  for (let i = 0; i < n; i++) if (S.velBuf[i] > max) max = S.velBuf[i];
+
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const bufI = (S.velIdx - n + i + n) % n;
+    const v = S.velBuf[bufI];
+    const x = (i / (n-1)) * W;
+    const y = y0 + barH - (v / max) * barH;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = 'rgba(0,212,255,.3)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Threshold line
+  const ty2 = y0 + barH - (cfg.threshold / max) * barH;
+  ctx.beginPath(); ctx.moveTo(0, ty2); ctx.lineTo(W, ty2);
+  ctx.strokeStyle = 'rgba(255,68,68,.35)'; ctx.setLineDash([3,4]); ctx.lineWidth = 1; ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ═══════════════════════════════════════════════════════
+// 3D HEAD DRAWING
+// ═══════════════════════════════════════════════════════
+function drawHead3D(area) {
+  const { x: ax, y: ay, w: aw, h: ah } = area;
+  const cx = ax + aw * 0.5;
+  const cy = ay + ah * 0.50;
+  const R  = Math.min(aw * 0.28, ah * 0.45); // head radius in pixels
+  const CAM = 3.8;
+
+  const yr = HD.yaw   * Math.PI / 180;
+  const pr = HD.pitch * Math.PI / 180;
+
+  // Transform: head-local [x,y,z] → world → screen
+  const tfm = (hx, hy, hz) => {
+    let p = M3.ry(hx, hy, hz, yr);
+    p = M3.rx(p[0], p[1], p[2], pr);
+    return M3.proj(p[0], p[1], p[2], cx, cy, R, CAM);
+  };
+
+  // ── Background panel ──
+  ctx.fillStyle = '#07090e';
+  ctx.fillRect(ax, ay, aw, ah);
+
+  // Subtle grid in head panel
+  ctx.strokeStyle = 'rgba(255,255,255,.018)'; ctx.lineWidth = 1;
+  const gs = Math.round(R * 0.55);
+  for (let gx = ax; gx < ax + aw; gx += gs) { ctx.beginPath(); ctx.moveTo(gx, ay); ctx.lineTo(gx, ay+ah); ctx.stroke(); }
+  for (let gy = ay; gy < ay + ah; gy += gs) { ctx.beginPath(); ctx.moveTo(ax, gy); ctx.lineTo(ax+aw, gy); ctx.stroke(); }
+
+  // ── Sort canals back-to-front (painter's algorithm) ──
+  const cData = CANALS.map(c => {
+    const ctr = tfm(...c.cen);
+    const pts2d = c.pts.map(p => tfm(...p));
+    return { ...c, ctr, pts2d, state: CS[c.id] };
+  }).sort((a, b) => a.ctr.depth - b.ctr.depth);
+
+  const backCanals  = cData.filter(c => c.ctr.depth < -0.0);
+  const frontCanals = cData.filter(c => c.ctr.depth >= -0.0);
+
+  // ── Back canals (rendered dim, dashed — behind head) ──
+  backCanals.forEach(c => renderCanal(c, R, 0.20, true));
+
+  // ── Neck ──
+  const chinPt = tfm(0, -1.20, 0);
+  ctx.beginPath();
+  _roundRect(cx - R*0.17, chinPt.sy, R*0.34, R*0.32, 4);
+  ctx.fillStyle = '#b0ab a6'; // intentional fallback
+  ctx.fillStyle = '#aaa8a5'; ctx.fill();
+  ctx.strokeStyle = '#8a8580'; ctx.lineWidth = 1; ctx.stroke();
+
+  // ── Head skull shell (back, slightly larger & offset) ──
+  const skullOfs = R * 0.04 * Math.sin(yr);
+  const skullW   = R * (0.87 + 0.13 * Math.cos(yr));
+  const skullH   = R * 1.28;
+
+  const shellGrad = ctx.createRadialGradient(cx - skullOfs + R*0.1, cy - R*0.18, R*0.05, cx, cy, R*1.35);
+  shellGrad.addColorStop(0, '#7a7570'); shellGrad.addColorStop(1, '#3a3530');
+  ctx.beginPath();
+  ctx.ellipse(cx - skullOfs, cy, skullW * 1.035, skullH * 1.02, 0, 0, Math.PI*2);
+  ctx.fillStyle = shellGrad; ctx.fill();
+
+  // ── Head face surface ──
+  const faceOfs = R * 0.06 * Math.sin(yr);
+  const faceW   = R * (0.84 + 0.13 * Math.cos(yr));
+  const faceH   = R * 1.25;
+
+  const hl = cx + R * 0.14 - faceOfs * 0.5;
+  const faceGrad = ctx.createRadialGradient(hl, cy - R*0.22, R*0.06, cx, cy, R*1.18);
+  faceGrad.addColorStop(0,    '#dad6d1'); // light highlight
+  faceGrad.addColorStop(0.42, '#bdb8b2'); // mid-tone
+  faceGrad.addColorStop(0.78, '#948e88'); // shadow
+  faceGrad.addColorStop(1,    '#524c46'); // deep shadow
+  ctx.beginPath();
+  ctx.ellipse(cx - faceOfs, cy, faceW, faceH, 0, 0, Math.PI*2);
+  ctx.fillStyle = faceGrad; ctx.fill();
+
+  // Subtle chin notch
+  ctx.beginPath();
+  ctx.ellipse(cx - faceOfs, cy + faceH * 0.86, faceW * 0.5, faceH * 0.12, 0, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fill();
+
+  // ── Ears ──
+  drawEar3D(tfm, R,  1.06, yr,  1); // patient's right (screen right)
+  drawEar3D(tfm, R, -1.06, yr, -1); // patient's left  (screen left)
+
+  // ── Inner-ear vestibule markers ──
+  [[ 0.68,-0.06,-0.08], [-0.68,-0.06,-0.08]].forEach(c => {
+    const p = tfm(...c);
+    if (p.depth > -0.5) {
+      ctx.save(); ctx.globalAlpha = Math.min(1, (p.depth + 1.0) * 0.9);
+      ctx.beginPath(); ctx.arc(p.sx, p.sy, R*0.05, 0, Math.PI*2);
+      ctx.fillStyle = '#3366aa'; ctx.fill();
+      ctx.strokeStyle = '#558edd'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.restore();
+    }
+  });
+
+  // ── Front canals (rendered full opacity, glow if active) ──
+  frontCanals.forEach(c => renderCanal(c, R, 1.0, false));
+
+  // ── Eyes with VOR iris offset ──
+  drawEyes3D(tfm, R, HD.eyeOfs);
+
+  // ── Nose hint ──
+  const noseP = tfm(0, -0.10, 0.88);
+  if (noseP.depth > -0.4) {
+    ctx.save(); ctx.globalAlpha = Math.min(1, noseP.depth + 0.9) * 0.7;
+    ctx.beginPath();
+    ctx.arc(noseP.sx - R*0.08, noseP.sy + R*0.03, R*0.055, 0.3, Math.PI - 0.3);
+    ctx.arc(noseP.sx + R*0.08, noseP.sy + R*0.03, R*0.055, 0.3, Math.PI - 0.3);
+    ctx.strokeStyle = 'rgba(0,0,0,.22)'; ctx.lineWidth = R*0.04; ctx.stroke();
+    ctx.restore();
+  }
+
+  // ── Labels ──
+  drawHeadLabels(ax, ay, aw, ah, R);
+}
+
+// ─── Canal tube rendering ───
+function renderCanal(c, R, alpha, dashed) {
+  const st = c.state;
+  // Colour: inactive = steel blue, warn = amber, fire = red
+  const col = st === 2 ? '#ff1818' : st === 1 ? '#ff8c00' : '#2a6aaa';
+  const glowCol = st === 2 ? '#ff0000' : '#ff9500';
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (!dashed && st >= 1) {
+    ctx.shadowColor = glowCol; ctx.shadowBlur = 14 + st * 6;
+  }
+  if (dashed) { ctx.setLineDash([3, 5]); }
+
+  ctx.beginPath();
+  c.pts2d.forEach((p, i) => { if (i === 0) ctx.moveTo(p.sx, p.sy); else ctx.lineTo(p.sx, p.sy); });
+  ctx.closePath();
+  ctx.strokeStyle = col;
+  ctx.lineWidth   = Math.max(1.5, R * 0.055);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+  ctx.shadowBlur = 0;
+
+  // Canal label (HC / AC / PC) near canal, only for visible-side canals
+  if (alpha > 0.5) {
+    // Place label at the "top" point of the circle (index 6 ≈ 90° → outward)
+    const lp = c.pts2d[Math.round(c.pts2d.length * 0.13)];
+    if (lp) {
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.75;
+      ctx.fillStyle  = col;
+      ctx.font       = `bold ${Math.max(8, R * 0.115)}px -apple-system, system-ui`;
+      ctx.textAlign  = c.side === 'R' ? 'left' : 'right';
+      const ox = c.side === 'R' ? R*0.04 : -R*0.04;
+      ctx.fillText(c.lbl, lp.sx + ox, lp.sy - R*0.015);
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+
+// ─── Ear rendering ───
+function drawEar3D(tfm, R, xSide, yr, sign) {
+  const earPt = tfm(xSide, -0.02, 0.0);
+  // Visibility based on depth — near ear (depth > 0) is most visible
+  const vis = Math.max(0, Math.min(1, (earPt.depth + 0.5) * 1.4));
+  if (vis < 0.04) return;
+
+  ctx.save();
+  ctx.globalAlpha = vis;
+  const eW = R * 0.075 * earPt.scale, eH = R * 0.23 * earPt.scale;
+
+  // Ear body
+  ctx.beginPath();
+  ctx.ellipse(earPt.sx, earPt.sy, eW, eH, 0, 0, Math.PI*2);
+  const eg = ctx.createRadialGradient(earPt.sx - eW*0.2, earPt.sy - eH*0.1, eH*0.05,
+                                       earPt.sx, earPt.sy, eH*0.9);
+  eg.addColorStop(0, '#d0ccc8'); eg.addColorStop(1, '#8a8580');
+  ctx.fillStyle = eg; ctx.fill();
+  ctx.strokeStyle = '#706a64'; ctx.lineWidth = 0.8; ctx.stroke();
+
+  // Concha (ear canal opening hint)
+  ctx.beginPath();
+  ctx.ellipse(earPt.sx, earPt.sy + eH*0.08, eW*0.45, eH*0.32, 0, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fill();
+  ctx.restore();
+}
+
+// ─── Eye rendering with VOR iris ───
+function drawEyes3D(tfm, R, eyeOfs) {
+  // Eye centers in head-local coords (front of head z≈0.90)
+  const eyes = [
+    [  0.28, 0.14, 0.90, 'R' ],
+    [ -0.28, 0.14, 0.90, 'L' ],
+  ];
+
+  eyes.forEach(([hx, hy, hz, side]) => {
+    const ep = tfm(hx, hy, hz);
+    if (ep.depth < -0.25) return; // behind head, skip
+
+    const sc   = Math.max(0.3, ep.scale * 0.88);
+    const eW   = R * 0.145 * sc;
+    const eH   = R * 0.090 * sc;
+    const iR   = eH * 0.70; // iris radius
+
+    // ── Eyelid (upper arc, skin-coloured) — drawn before eyeball ──
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(ep.sx, ep.sy - eH*0.06, eW*1.05, eH*1.0, 0, Math.PI, Math.PI*2);
+    ctx.fillStyle = '#bab5af'; ctx.fill();
+    ctx.restore();
+
+    // ── White of eye ──
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(ep.sx, ep.sy, eW, eH, 0, 0, Math.PI*2);
+    const eg = ctx.createRadialGradient(ep.sx - eW*0.15, ep.sy - eH*0.15, eH*0.02, ep.sx, ep.sy, eH*1.1);
+    eg.addColorStop(0, '#f4f2f0'); eg.addColorStop(1, '#d8d4d0');
+    ctx.fillStyle = eg; ctx.fill();
+    ctx.strokeStyle = '#999490'; ctx.lineWidth = 0.6; ctx.stroke();
+    ctx.restore();
+
+    // Clamp iris within sclera
+    const maxOfs = (eW - iR) * 0.78;
+    const irisDx = Math.max(-maxOfs, Math.min(maxOfs, eyeOfs * eW * 2.2));
+
+    // ── Iris ──
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(ep.sx + irisDx, ep.sy, iR, 0, Math.PI*2);
+    const ig = ctx.createRadialGradient(
+      ep.sx + irisDx - iR*0.2, ep.sy - iR*0.2, iR*0.05,
+      ep.sx + irisDx, ep.sy, iR
+    );
+    ig.addColorStop(0, '#4a82c8'); ig.addColorStop(0.6, '#2d5a9e'); ig.addColorStop(1, '#1a3568');
+    ctx.fillStyle = ig; ctx.fill();
+    ctx.restore();
+
+    // ── Pupil ──
+    ctx.beginPath();
+    ctx.arc(ep.sx + irisDx, ep.sy, iR * 0.44, 0, Math.PI*2);
+    ctx.fillStyle = '#080808'; ctx.fill();
+
+    // ── Specular highlight ──
+    ctx.beginPath();
+    ctx.arc(ep.sx + irisDx + iR*0.24, ep.sy - iR*0.25, iR*0.18, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fill();
+
+    // ── Lower eyelid shadow ──
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(ep.sx, ep.sy + eH*0.08, eW*1.02, eH*0.6, 0, 0, Math.PI);
+    ctx.fillStyle = 'rgba(0,0,0,.08)'; ctx.fill();
+    ctx.restore();
+  });
+}
+
+// ─── Head panel labels ───
+function drawHeadLabels(ax, ay, aw, ah, R) {
+  const fs = Math.max(9, R * 0.115);
+  ctx.font = `${fs}px -apple-system, system-ui`;
+
+  // Side labels
+  ctx.fillStyle = 'rgba(255,255,255,.18)';
+  ctx.textAlign = 'left';
+  ctx.fillText('L', ax + aw*0.06, ay + ah*0.14);
+  ctx.textAlign = 'right';
+  ctx.fillText('R', ax + aw*0.94, ay + ah*0.14);
+
+  // Active canal alert banner
+  const fired = Object.entries(CS).find(([,v]) => v === 2);
+  if (fired) {
+    const [id] = fired;
+    const side = id[0].toUpperCase() === 'R' ? 'RIGHT' : 'LEFT';
+    const type = id.slice(1);                  // HC / AC / PC
+    const label = `${type} CANAL TRIGGERED — ${side}`;
+    ctx.save();
+    ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 10;
+    ctx.fillStyle = '#ff2020';
+    ctx.font = `bold ${fs}px -apple-system, system-ui`;
+    ctx.textAlign = 'center';
+    ctx.fillText(label, ax + aw*0.5, ay + ah*0.94);
+    ctx.restore();
+  } else {
+    // Check warning level
+    const warned = Object.entries(CS).find(([,v]) => v === 1);
+    if (warned) {
+      ctx.fillStyle = '#ff9500';
+      ctx.font = `${fs*0.9}px -apple-system, system-ui`;
+      ctx.textAlign = 'center';
+      ctx.fillText('CANAL APPROACHING THRESHOLD', ax + aw*0.5, ay + ah*0.94);
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,.1)';
+      ctx.font = `${fs*0.88}px -apple-system, system-ui`;
+      ctx.textAlign = 'center';
+      ctx.fillText('Semicircular Canals  ·  HC  AC  PC  ·  Bilateral', ax + aw*0.5, ay + ah*0.94);
+    }
+  }
+
+  // VOR eye direction hint
+  if (S.running && Math.abs(S.yaw) > cfg.threshold * 0.4) {
+    const dir = S.yaw > 0 ? '← VOR' : 'VOR →';
+    ctx.fillStyle = 'rgba(0,212,255,.5)';
+    ctx.font = `${fs*0.85}px -apple-system, system-ui`;
+    ctx.textAlign = 'center';
+    ctx.fillText(dir, ax + aw*0.5, ay + ah*0.07);
+  }
+}
+
+// Safe rounded-rect helper (no roundRect API needed)
+function _roundRect(x, y, w, h, r) {
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x+r, y);
+}
+
+// ═══════════════════════════════════════════════════════
+// METRICS OVERLAY
+// ═══════════════════════════════════════════════════════
+function showMetrics() {
+  const pass = S.peak >= cfg.threshold;
+  D.cDir.textContent = S.dir; D.cVel.textContent = `${Math.round(S.peak)} °/s`;
+  D.cRes.textContent = pass ? '✓ PASS' : '✗ FAIL';
+  D.cRes.className   = 'chip ' + (pass ? 'chip-ok' : 'chip-er');
+  D.metrics.classList.add('show');
+}
+function hideMetrics() { D.metrics.classList.remove('show'); }
+
+// ═══════════════════════════════════════════════════════
+// SESSION LOG
+// ═══════════════════════════════════════════════════════
+function commitLog() {
+  const pass = S.peak >= cfg.threshold, now = new Date();
+  S.log.unshift({ time: now.toTimeString().slice(0,8), dir: S.dir, peak: Math.round(S.peak), pass });
+  if (S.log.length > 150) S.log.pop();
+  renderLog();
+}
+function renderLog() {
+  if (S.log.length === 0) { D.logEmpty.style.display = 'block'; D.logTbl.classList.add('hidden'); return; }
+  D.logEmpty.style.display = 'none'; D.logTbl.classList.remove('hidden');
+  D.logBody.innerHTML = S.log.map(e => `<tr>
+    <td>${e.time}</td>
+    <td class="${e.dir==='LEFT'?'ld':'rd'}">${e.dir}</td>
+    <td>${e.peak}</td>
+    <td class="${e.pass?'lp':'lf'}">${e.pass?'✓ PASS':'✗ FAIL'}</td></tr>`).join('');
+}
+function clearLog() { S.log = []; renderLog(); }
+
+// ═══════════════════════════════════════════════════════
+// METRONOME
+// ═══════════════════════════════════════════════════════
+function startMetro() {
+  stopMetro();
+  if (!S.audioCtx) S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (S.audioCtx.state === 'suspended') S.audioCtx.resume();
+  S.metro = true;
+  const tick = () => {
+    if (!S.metro) return;
+    clickSound(); beatFlash();
+    S.mId = setTimeout(tick, 60000 / cfg.bpm);
+  };
+  tick();
+}
+function stopMetro() {
+  S.metro = false; if (S.mId) clearTimeout(S.mId); S.beat = false; D.mdot.classList.remove('beat');
+}
+function restartMetro() { if (S.metro) startMetro(); }
+
+function clickSound() {
+  if (!S.audioCtx) return;
+  const osc = S.audioCtx.createOscillator(), gain = S.audioCtx.createGain();
+  osc.connect(gain); gain.connect(S.audioCtx.destination);
+  osc.frequency.setValueAtTime(900, S.audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(220, S.audioCtx.currentTime + 0.07);
+  gain.gain.setValueAtTime(0.28, S.audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, S.audioCtx.currentTime + 0.09);
+  osc.start(S.audioCtx.currentTime); osc.stop(S.audioCtx.currentTime + 0.1);
+}
+function beatFlash() {
+  S.beat = true; D.mdot.classList.add('beat');
+  setTimeout(() => { S.beat = false; D.mdot.classList.remove('beat'); }, 75);
+}
+
+// ═══════════════════════════════════════════════════════
+// SESSION CONTROL
+// ═══════════════════════════════════════════════════════
+function toggleSession() { if (S.running) stopSession(); else startSession(); }
+
+function startSession() {
+  S.running = true; S.imp = 'idle'; S.peak = 0; S.angle = 0; S.targetX = 0;
+  S.velBuf.fill(0); S.velIdx = 0; S.peakSamples = 0; _lastVRTt = 0;
+  D.btnGo.textContent = '⏹ Stop Session'; D.btnGo.classList.add('stop');
+  if (cfg.mode === 'VRT') startMetro();
+}
+function stopSession() {
+  S.running = false; S.imp = 'idle'; S.peak = 0;
+  if (_flashTmr) clearTimeout(_flashTmr); if (_coolTmr) clearTimeout(_coolTmr);
+  D.flash.classList.remove('on'); hideMetrics(); stopMetro();
+  D.btnGo.textContent = '▶ Start Session'; D.btnGo.classList.remove('stop');
+  Object.keys(CS).forEach(k => CS[k] = 0);
+}
+
+// ═══════════════════════════════════════════════════════
+// MODE & GAIN SWITCHING
+// ═══════════════════════════════════════════════════════
+function setMode(mode) {
+  if (S.running) stopSession(); cfg.mode = mode; updateModeUI(); S.targetX = 0; S.angle = 0;
+}
+function updateModeUI() {
+  const aHIT = cfg.mode === 'aHIT';
+  el('mbtn-ahit').classList.toggle('on', aHIT); el('mbtn-vrt').classList.toggle('on', !aHIT);
+  D.secAHIT.classList.toggle('hidden', !aHIT); D.secVRT.classList.toggle('hidden', aHIT);
+  D.modeTag.textContent = aHIT ? 'aHIT' : 'VRT';
+  D.modeTag.style.color = aHIT ? 'var(--ac)' : 'var(--ac2)';
+}
+function setGainMode(mode) {
+  cfg.gainMode = mode;
+  el('gm-x1').classList.toggle('on', mode === 'x1'); el('gm-x2').classList.toggle('on', mode === 'x2');
+  const sl = el('sl-gain'), vl = el('vl-gain');
+  if (mode === 'x1') { cfg.gain = 1.0;  sl.value = '1.0';  vl.textContent = '1.0×'; }
+  else               { cfg.gain = -1.0; sl.value = '-1.0'; vl.textContent = '-1.0×'; }
+}
+
+// ═══════════════════════════════════════════════════════
+// UI TOGGLE
+// ═══════════════════════════════════════════════════════
+function hideUI() {
+  D.cp.classList.add('hide'); D.cz.classList.add('full');
+  D.tapOv.classList.add('show'); D.restHint.classList.remove('hidden');
+  setTimeout(resizeCanvas, 60);
+}
+function showUI() {
+  D.cp.classList.remove('hide'); D.cz.classList.remove('full');
+  D.tapOv.classList.remove('show'); D.restHint.classList.add('hidden');
+  setTimeout(resizeCanvas, 60);
+}
+let _lastTap = 0;
+D.cz.addEventListener('touchend', () => {
+  const now = Date.now();
+  if (now - _lastTap < 320) { D.cp.classList.contains('hide') ? showUI() : hideUI(); }
+  _lastTap = now;
+});
+
+// ═══════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  const needsPrompt = typeof DeviceMotionEvent !== 'undefined' &&
+                      typeof DeviceMotionEvent.requestPermission === 'function';
+  if (!needsPrompt) el('perm-note').textContent =
+    'Tap below to open the app. Must be served over HTTPS for live sensor access.';
+  if (location.protocol === 'http:' && !['localhost','127.0.0.1'].includes(location.hostname)) {
+    el('perm-note').textContent =
+      '⚠ Sensors require HTTPS. Host on GitHub Pages, Netlify, or another HTTPS server.';
+    el('perm-note').style.color = '#ff6b35';
+  }
+});
+</script>
+</body>
+</html>
